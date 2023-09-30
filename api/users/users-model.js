@@ -1,4 +1,4 @@
-const db = require('../../data/db-config.js');
+const db = require("../../data/db-config.js");
 
 function find() {
   /**
@@ -18,9 +18,12 @@ function find() {
       }
     ]
    */
+  return db("users as u")
+    .join("roles as r", "u.role_id", "=", "r.role_id")
+    .select("u.user_id", "u.username", "r.role_name");
 }
 
-function findBy(filter) {
+async function findBy(filter) {
   /**
     You will need to join two tables.
     Resolves to an ARRAY with all users that match the filter condition.
@@ -34,6 +37,12 @@ function findBy(filter) {
       }
     ]
    */
+  const result = await db("users as u")
+    .join("roles as r", "u.role_id", "=", "r.role_id")
+    .select("u.user_id", "u.username", "r.role_name", "u.password")
+    .where(filter)
+    .first();
+  return result;
 }
 
 function findById(user_id) {
@@ -47,6 +56,10 @@ function findById(user_id) {
       "role_name": "instructor"
     }
    */
+  return db("users as u")
+    .join("roles as r", "u.role_id", "=", "r.role_id")
+    .select("u.user_id", "u.username", "r.role_name")
+    .where("user_id", user_id);
 }
 
 /**
@@ -67,21 +80,34 @@ function findById(user_id) {
     "role_name": "team lead"
   }
  */
-async function add({ username, password, role_name }) { // done for you
-  let created_user_id
-  await db.transaction(async trx => {
-    let role_id_to_use
-    const [role] = await trx('roles').where('role_name', role_name)
+async function add({ username, password, role_name }) {
+  // done for you
+  let created_user_id;
+  await db.transaction(async (trx) => {
+    let role_id_to_use;
+    const [role] = await trx("roles").where("role_name", role_name);
     if (role) {
-      role_id_to_use = role.role_id
+      role_id_to_use = role.role_id;
     } else {
-      const [role_id] = await trx('roles').insert({ role_name: role_name })
-      role_id_to_use = role_id
+      const [role_id] = await trx("roles").insert({ role_name: role_name });
+      role_id_to_use = role_id;
     }
-    const [user_id] = await trx('users').insert({ username, password, role_id: role_id_to_use })
-    created_user_id = user_id
-  })
-  return findById(created_user_id)
+    const [user_id] = await trx("users").insert({
+      username,
+      password,
+      role_id: role_id_to_use,
+    });
+    created_user_id = user_id;
+  });
+  return findById(created_user_id);
+}
+
+async function validRole(role_name) {
+  const selectRole = await db("roles")
+    .select("role_id", "role_name")
+    .where("role_name", role_name)
+    .first();
+  return selectRole;
 }
 
 module.exports = {
@@ -89,4 +115,5 @@ module.exports = {
   find,
   findBy,
   findById,
+  validRole,
 };
